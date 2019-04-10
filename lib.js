@@ -4,6 +4,7 @@
 
 let ipaddr = '127.0.0.1';
 let showVideo = false;
+let receiverOnly = false;
 
 const mediaStreamConstraints = {
     audio: {
@@ -43,20 +44,28 @@ if (showVideo === false) {
     remoteVideo.style.display = 'none';
 }
 
-let localStream;
-let remoteStream;
+let localStream = null;
+let remoteStream = null;
 
-let localPeerConnection;
+let localPeerConnection = null;
 let iceCandidates = [];
 
 function handleError(e) {
     console.error(e);
     console.dir(e);
+    console.trace(e);
 }
 
 // Setup local media streams
 function setupLocalMediaStreams() {
-    navigator.getUserMedia(mediaStreamConstraints, gotLocalMediaStream, handleError);
+    navigator.getUserMedia(mediaStreamConstraints, gotLocalMediaStream, (e) => {
+        // We weren't able to get a local media stream
+        // Become a receiver
+        receiverOnly = true;
+
+        localAudio.style.display = 'none';
+        localVideo.style.display = 'none';
+    });
 }
 
 // Define MediaStreams callbacks.
@@ -214,16 +223,20 @@ async function connectToPeer() {
     }
 
     // Get local media stream tracks.
-    const videoTracks = localStream.getVideoTracks();
-    const audioTracks = localStream.getAudioTracks();
+    let videoTracks = null;
+    let audioTracks = null;
+    if (receiverOnly === false) {
+        videoTracks = localStream.getVideoTracks();
+        audioTracks = localStream.getAudioTracks();
 
-    console.dir(audioTracks);
+        console.dir(audioTracks);
 
-    if (showVideo && videoTracks.length > 0) {
-        trace(`Using video device: ${videoTracks[0].label}.`);
-    }
-    if (audioTracks.length > 0) {
-        trace(`Using audio device: ${audioTracks[0].label}.`);
+        if (showVideo && videoTracks.length > 0) {
+            trace(`Using video device: ${videoTracks[0].label}.`);
+        }
+        if (audioTracks.length > 0) {
+            trace(`Using audio device: ${audioTracks[0].label}.`);
+        }
     }
 
     const servers = null;  // Allows for RTC server configuration.
@@ -237,9 +250,9 @@ async function connectToPeer() {
     localPeerConnection.addEventListener('track', gotRemoteMediaStream);
 
     // Add local stream to connection and create offer to connect.
-    if (showVideo && videoTracks[0])
+    if (receiverOnly === false && showVideo && videoTracks[0])
         localPeerConnection.addTrack(videoTracks[0], localStream);
-    if (audioTracks[0])
+    if (receiverOnly === false && audioTracks[0])
         localPeerConnection.addTrack(audioTracks[0], localStream);
     trace('Added local stream to localPeerConnection.');
 }
