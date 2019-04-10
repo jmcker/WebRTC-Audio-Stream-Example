@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Audio and Video</title>
+</head>
+
+<body>
+
+    <h1>SplitSound v0.0.-1</h1>
+    <hr><br>
+
+    <button id="connectButton" style="width: 25%; height: 50px;">Connect</button>
+
+    <h2>Local:</h2>
+    <audio id="localAudio" autoplay controls muted></audio><br>
+    <video id="localVideo" style="max-width: 75%" autoplay controls muted></video><br><br><br>
+
+    <h2>Remote:</h2>
+    <audio id="remoteAudio" autoplay controls></audio><br>
+    <video id="remoteVideo" style="max-width: 75%" autoplay controls muted></video><br>
+
+    <script type="text/javascript" src="./node_modules/socket.io-client/dist/socket.io.js"></script>
+    <script type="text/javascript" src="./lib.js"></script>
+    <script type="text/javascript">
+
+        setupLocalMediaStreams();
+        document.getElementById('connectButton').addEventListener('click', connectToPeer);
+
+        document.addEventListener('keyup', (e) => {
+            if (e.which === 123) {
+                require('remote').getCurrentWindow().toggleDevTools();
+            } else if (e.which === 116) {
+                location.reload();
+            }
+        });
+
+    </script>
+</body>
+
+</html>
