@@ -68,6 +68,41 @@ function setupLocalMediaStreams() {
     });
 }
 
+async function setupLocalMediaStreamsFromFile(filepath) {
+    trace('Creating MediaSource...');
+    let mediaSource = new MediaSource();
+    mediaSource.addEventListener('sourceopen', sourceOpen);
+    console.dir(mediaSource);
+
+    localAudio.src = URL.createObjectURL(mediaSource);
+
+    let buffer;
+    async function sourceOpen() {
+        trace('MediaSource open.');
+
+        buffer = mediaSource.addSourceBuffer('audio/mpeg');
+
+        trace('Fetching data...');
+        let data;
+        let resp = await fetch(filepath);
+        data = await resp.arrayBuffer();
+        console.dir(data);
+        buffer.appendBuffer(data);
+
+        localStream = localAudio.captureStream();
+
+        // setInterval(() => {
+
+        //     data = [];
+        //     for (let j = 0; j < 10000; j++) {
+        //         data.push(Math.random() * 1500);
+        //     }
+        //     buffer.appendBuffer(Int32Array.from(data));
+        //     console.dir(data);
+        // }, 3);
+    }
+}
+
 // Define MediaStreams callbacks.
 
 // Sets the MediaStream as the video element src.
