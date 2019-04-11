@@ -2,7 +2,7 @@
 
 // Set up media stream constant and parameters.
 
-let ipaddr = '127.0.0.1';
+let ipaddr = '192.168.1.207';
 let showVideo = false;
 let receiverOnly = false;
 
@@ -57,8 +57,12 @@ function handleError(e) {
 }
 
 // Setup local media streams
-function setupLocalMediaStreams() {
-    navigator.getUserMedia(mediaStreamConstraints, gotLocalMediaStream, (e) => {
+async function setupLocalMediaStreams() {
+    navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
+    .then((stream) => {
+        gotLocalMediaStream(stream);
+    })
+    .catch((e) => {
         // We weren't able to get a local media stream
         // Become a receiver
         receiverOnly = true;
