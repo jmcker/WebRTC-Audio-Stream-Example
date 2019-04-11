@@ -2,7 +2,7 @@
 
 // Set up media stream constant and parameters.
 
-let ipaddr = '127.0.0.1';
+let ipaddr = 'symboxtra.dynu.net';
 let room = 'test';
 let showVideo = false;
 let receiverOnly = false;
