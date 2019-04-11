@@ -36,38 +36,25 @@ io.on('connection', (socket) => {
             console.log(`Client ID ${socket.id} created room ${room}`);
             socket.emit('created', room, socket.id);
 
-        } else if (numClients === 2) {
+        } else {
             socket.join(room);
             console.log(`Client ID ${socket.id} joined room ${room}`);
             socket.emit('joined', room, socket.id);
 
-            io.sockets.in(room).emit('join', room);
-            io.sockets.in(room).emit('ready');
-        } else { // max two clients
-            socket.emit('full', room);
+            io.to(room).emit('join', socket.id);
         }
     });
 
-    socket.on('offer', (offer) => {
-        let clientsInRoom = io.sockets.adapter.rooms[room];
-        let numClients = clientsInRoom ? Object.keys(clientsInRoom.sockets).length : 0;
-
-        if (numClients === 2) {
-            io.sockets.in(room).emit('offer', offer);
-        }
+    socket.on('offer', (offer, recipientId) => {
+        io.to(recipientId).emit('offer', offer, socket.id);
     });
 
-    socket.on('answer', (answer) => {
-        let clientsInRoom = io.sockets.adapter.rooms[room];
-        let numClients = clientsInRoom ? Object.keys(clientsInRoom.sockets).length : 0;
-
-        if (numClients === 2) {
-            io.sockets.in(room).emit('answer', answer);
-        }
+    socket.on('answer', (answer, recipientId) => {
+        io.to(recipientId).emit('answer', answer, socket.id);
     });
 
-    socket.on('candidate', (socketId, candidate) => {
-        io.sockets.in(room).emit('candidate', socketId, candidate);
+    socket.on('candidate', (candidate, recipientId) => {
+        io.to(recipientId).emit('candidate', candidate, socket.id);
     });
 
     socket.on('ipaddr', () => {

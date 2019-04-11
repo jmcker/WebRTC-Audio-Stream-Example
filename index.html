@@ -14,21 +14,23 @@
     <button id="connectButton" style="width: 25%; height: 50px;">Connect</button>
 
     <h2>Local:</h2>
-    <audio id="localAudio" autoplay controls muted></audio><br>
-    <video id="localVideo" style="max-width: 75%" autoplay controls muted></video><br><br><br>
+    <h3>ID: <span id="socket_id">disconnected</span></h3>
+    <div id="localMedia">
+        <audio id="localAudio" autoplay controls muted></audio><br>
+        <video id="localVideo" class="localVideo" autoplay controls muted></video><br><br><br>
+    </div>
 
-    <h2>Remote:</h2>
-    <audio id="remoteAudio" autoplay controls></audio><br>
-    <video id="remoteVideo" style="max-width: 75%" autoplay controls muted></video><br>
+    <h2>Remote Connections:</h2>
+    <div id="remoteMedia"></div>
 
     <script type="text/javascript" src="./node_modules/socket.io-client/dist/socket.io.js"></script>
     <script type="text/javascript" src="./lib.js"></script>
     <script type="text/javascript">
 
-        // setupLocalMediaStreamsFromFile('./test_file.mp3');
-        setupLocalMediaStreams();
+        setupLocalMediaStreamsFromFile('./test_file.mp3');
+        // setupLocalMediaStreams();
 
-        document.getElementById('connectButton').addEventListener('click', connectToPeer);
+        document.getElementById('connectButton').addEventListener('click', connectToPeers);
 
         document.addEventListener('keyup', (e) => {
             if (e.which === 123) {
