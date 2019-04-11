@@ -1,11 +1,15 @@
 'use strict';
 
+const ADDRESS = '0.0.0.0';
+const PORT = 8080;
+const MAX_CLIENTS = 50;
+
 let os = require('os');
 let app = require('http').createServer(handler);
 let io = require('socket.io')(app);
 
-app.listen(8080, '0.0.0.0');
-console.log('Socket.io server listening on 0.0.0.0:8080...');
+app.listen(PORT, ADDRESS);
+console.log(`Socket.io server listening on ${ADDRESS}:${PORT}...`);
 
 // This response can be used to debug firewall or other connectivity issues
 function handler (req, res) {
@@ -36,12 +40,15 @@ io.on('connection', (socket) => {
             console.log(`Client ID ${socket.id} created room ${room}`);
             socket.emit('created', room, socket.id);
 
-        } else {
+        } else if (numClients < MAX_CLIENTS) {
             socket.join(room);
             console.log(`Client ID ${socket.id} joined room ${room}`);
             socket.emit('joined', room, socket.id);
 
             io.to(room).emit('join', socket.id);
+        } else {
+            console.log(`Max clients (${MAX_CLIENT}) reached.`);
+            socket.emit('full', room);
         }
     });
 
