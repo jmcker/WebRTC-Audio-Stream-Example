@@ -56,6 +56,10 @@ class Peer {
     // Logs changes to the connection state.
     handleConnectionChange(event) {
         trace(`ICE state changed to: ${event.target.iceConnectionState}.`);
+
+        if (event.target.iceConnectionState === 'disconnected') { // || event.target.iceConnectionState === 'closed' || event.target.iceConnectionState === 'failed') {
+            disconnectFromPeer(this.id);
+        }
     }
 
     uncacheICECandidates() {
