@@ -4,7 +4,11 @@ button {
 }
 
 #localMedia {
-    padding-bottom: 50px;
+    padding-bottom: 25px;
+}
+
+#connectButton {
+    margin-top: 25px;
 }
 
 .localVideo {

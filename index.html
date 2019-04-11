@@ -15,13 +15,17 @@
     <form onsubmit="return false;">
         <div><b>Room name: </b></div>
         <input type="text" id="connectRoom" value="test">
+        <div id="streamFrom">
         <div><b>Stream from: </b></div>
         <div class="radioButtons">
             <input type="radio" id="fromFile" name="from" value="file" checked>File<br>
             <input type="radio" id="fromDesktop" name="from" value="desktop">Desktop capture (Windows only)
         </div>
+        </div>
 
-        <button id="connectButton">Connect</button>
+        <div>
+            <button id="connectButton">Connect</button>
+        </div>
     </form>
 
     <h2>Local:</h2>

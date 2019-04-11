@@ -5,6 +5,7 @@
 ***************************************************/
 let receiverOnly = false;
 let showVideo = false;
+let isElectron = (navigator.userAgent.toLowerCase().indexOf(' electron/') > -1);
 
 // Set up media stream constant and parameters.
 const mediaStreamConstraints = {
@@ -41,10 +42,15 @@ const remoteMedia = document.getElementById('remoteMedia');
 
 // Socket ID element
 const socketIdElem = document.getElementById('socketId');
+const streamFromElem = document.getElementById('streamFrom');
 
 // Hide video elements
 if (showVideo === false) {
     hideVideoElements();
+}
+// Prevent file:// protocol issues
+if (isElectron === false && location.href.includes('file://')) {
+    enableReceiverOnly();
 }
 
 let localStream = null;
@@ -70,9 +76,7 @@ async function setupLocalMediaStreams() {
 
             // We weren't able to get a local media stream
             // Become a receiver
-            receiverOnly = true;
-
-            localMedia.style.display = 'none';
+            enableReceiverOnly();
             reject();
         });
     });
@@ -80,6 +84,11 @@ async function setupLocalMediaStreams() {
 
 async function setupLocalMediaStreamsFromFile(filepath) {
     return new Promise(async (resolve, reject) => {
+        if (receiverOnly) {
+            resolve();
+            return;
+        }
+
         let mediaSource = new MediaSource();
         mediaSource.addEventListener('sourceopen', sourceOpen);
 
@@ -93,17 +102,30 @@ async function setupLocalMediaStreamsFromFile(filepath) {
         async function sourceOpen() {
             trace('MediaSource open.');
 
-            buffer = mediaSource.addSourceBuffer('audio/mpeg');
+            // Corner case for file:// protocol since fetch won't like it
+            if (isElectron === false && location.href.includes('file://')) {
+                // TODO: Audio still wouldn't transmit
+                // URL.revokeObjectURL(localAudio.src);
+                // localAudio.src = './test_file.mp3'
+            } else {
+                buffer = mediaSource.addSourceBuffer('audio/mpeg');
 
-            trace('Fetching data...');
-            let data;
-            let resp = await fetch(filepath);
-            data = await resp.arrayBuffer();
-            console.dir(data);
-            buffer.appendBuffer(data);
-            trace('Data loaded.');
+                trace('Fetching data...');
+                let data;
+                let resp = await fetch(filepath);
+                data = await resp.arrayBuffer();
+                console.dir(data);
+                buffer.appendBuffer(data);
+                trace('Data loaded.');
+            }
 
-            localStream = localAudio.captureStream();
+            try {
+                localStream = localAudio.captureStream();
+            } catch(e) {
+                trace(`Failed to captureStream() on audio elem. Assuming unsupported. Switching to receiver only.`);
+
+                enableReceiverOnly();
+            }
             resolve();
         }
     });
@@ -125,6 +147,14 @@ function gotLocalMediaStream(mediaStream) {
 /**************************************************
  * DOM related functions                          *
 ***************************************************/
+
+function enableReceiverOnly() {
+    receiverOnly = true;
+    localMedia.innerHTML = 'Receiver only';
+    streamFromElem.style.display = 'none';
+
+    trace('Switched to receiver only.');
+}
 
 function hideVideoElements() {
     localVideo.style.display = 'none';
@@ -445,7 +475,7 @@ class Socket {
             let iceCandidate = new RTCIceCandidate(candidate);
 
             // Cache ICE candidates if the connection isn't ready yet
-            if (peer.conn && peer.conn.remoteDescription.type) {
+            if (peer.conn && peer.conn.remoteDescription && peer.conn.remoteDescription.type) {
                 await peer.conn.addIceCandidate(iceCandidate);
             } else {
                 trace(`Cached ICE candidate`);
