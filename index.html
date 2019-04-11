@@ -16,11 +16,13 @@
         <div><b>Room name: </b></div>
         <input type="text" id="connectRoom" value="test">
         <div id="streamFrom">
-        <div><b>Stream from: </b></div>
-        <div class="radioButtons">
-            <input type="radio" id="fromFile" name="from" value="file" checked>File<br>
-            <input type="radio" id="fromDesktop" name="from" value="desktop">Desktop capture (Windows only)
-        </div>
+            <div><b>Stream from: </b></div>
+            <div class="inputOptions">
+                <select id="streamFromOptions">
+                    <option value="file">File</option>
+                    <option id="fromDesktop" value="desktop">Desktop Capture (Windows only)</option>
+                </select>
+            </div>
         </div>
 
         <div>
@@ -41,18 +43,24 @@
     <script type="text/javascript" src="./node_modules/socket.io-client/dist/socket.io.js"></script>
     <script type="text/javascript" src="./lib.js"></script>
     <script type="text/javascript">
-        let socket = new Socket('127.0.0.1', 8080);
+        let socket = new Socket('symboxtra.dynu.net', 8080);
 
         document.getElementById('connectButton').addEventListener('click', async () => {
             // Leave any old rooms
             socket.leaveAllRooms();
 
-            let fromDesktop = document.getElementById('fromDesktop').checked;
+            let source = document.getElementById('streamFromOptions').value;
 
-            if (fromDesktop) {
-                await setupLocalMediaStreams();
-            } else {
-                await setupLocalMediaStreamsFromFile('./test_file.mp3');
+            switch (source) {
+                case 'file':
+                    await setupLocalMediaStreamsFromFile('./test_file.mp3');
+                    break;
+                case 'desktop':
+                    await setupLocalMediaStreams();
+                    break;
+                default:
+                    await setupLocalMediaStreamsFromFile('./test_file.mp3');
+                    break;
             }
 
             let room = document.getElementById('connectRoom').value;
@@ -61,7 +69,9 @@
 
         document.addEventListener('keyup', (e) => {
             if (e.which === 123) {
-                require('remote').getCurrentWindow().toggleDevTools();
+                if (isElectron) {
+                    require('remote').getCurrentWindow().toggleDevTools();
+                }
             } else if (e.which === 116) {
                 location.reload();
             }

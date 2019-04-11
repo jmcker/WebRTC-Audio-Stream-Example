@@ -11,6 +11,11 @@ button {
     margin-top: 25px;
 }
 
+#streamFromOptions {
+    min-width: 150px;
+    max-width: 85%;
+}
+
 .localVideo {
     max-width: 75%;
 }
@@ -19,6 +24,6 @@ button {
     max-width: 75%;
 }
 
-.radioButtons {
+.inputOptions {
     padding: 10px;
 }

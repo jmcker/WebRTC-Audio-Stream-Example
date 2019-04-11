@@ -52,6 +52,10 @@ if (showVideo === false) {
 if (isElectron === false && location.href.includes('file://')) {
     enableReceiverOnly();
 }
+// Prevent screen capture issues
+if (isElectron === false) {
+    document.getElementById('fromDesktop').remove();
+}
 
 let localStream = null;
 const servers = null;  // Allows for RTC server configuration.
@@ -505,15 +509,12 @@ class Socket {
         this.socket.emit('leave', room, this.socket.id);
 
         this.rooms = this.rooms.filter((val) => val !== room);
-        console.dir(this.rooms);
     }
 
     leaveAllRooms() {
         this.rooms.forEach((val) => {
             this.leaveRoom(val);
         });
-
-        this.rooms = [];
     }
 
     disconnected(id) {
