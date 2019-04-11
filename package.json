@@ -15,5 +15,8 @@
   },
   "devDependencies": {
     "electron": "^4.1.4"
+  },
+  "nodemonConfig": {
+    "watch": "server.js"
   }
 }

@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Audio and Video</title>
+    <title>WebRTC Streaming</title>
+    <link rel="stylesheet" href="./styles.css">
 </head>
 
 <body>
@@ -11,13 +12,23 @@
     <h1>SplitSound v0.0.-1</h1>
     <hr><br>
 
-    <button id="connectButton" style="width: 25%; height: 50px;">Connect</button>
+    <form onsubmit="return false;">
+        <div><b>Room name: </b></div>
+        <input type="text" id="connectRoom" value="test">
+        <div><b>Stream from: </b></div>
+        <div class="radioButtons">
+            <input type="radio" id="fromFile" name="from" value="file" checked>File<br>
+            <input type="radio" id="fromDesktop" name="from" value="desktop">Desktop capture (Windows only)
+        </div>
+
+        <button id="connectButton">Connect</button>
+    </form>
 
     <h2>Local:</h2>
-    <h3>ID: <span id="socket_id">disconnected</span></h3>
+    <h3>ID: <span id="socketId">disconnected</span></h3>
     <div id="localMedia">
         <audio id="localAudio" autoplay controls muted></audio><br>
-        <video id="localVideo" class="localVideo" autoplay controls muted></video><br><br><br>
+        <video id="localVideo" class="localVideo" autoplay controls muted></video>
     </div>
 
     <h2>Remote Connections:</h2>
@@ -26,11 +37,23 @@
     <script type="text/javascript" src="./node_modules/socket.io-client/dist/socket.io.js"></script>
     <script type="text/javascript" src="./lib.js"></script>
     <script type="text/javascript">
+        let socket = new Socket('127.0.0.1', 8080);
 
-        setupLocalMediaStreamsFromFile('./test_file.mp3');
-        // setupLocalMediaStreams();
+        document.getElementById('connectButton').addEventListener('click', async () => {
+            // Leave any old rooms
+            socket.leaveAllRooms();
 
-        document.getElementById('connectButton').addEventListener('click', connectToPeers);
+            let fromDesktop = document.getElementById('fromDesktop').checked;
+
+            if (fromDesktop) {
+                await setupLocalMediaStreams();
+            } else {
+                await setupLocalMediaStreamsFromFile('./test_file.mp3');
+            }
+
+            let room = document.getElementById('connectRoom').value;
+            socket.joinRoom(room);
+        });
 
         document.addEventListener('keyup', (e) => {
             if (e.which === 123) {

@@ -19,13 +19,8 @@ function handler (req, res) {
 }
 
 io.on('connection', (socket) => {
-
-    let room = '';
-
-    socket.on('room', (incomingRoom) => {
+    socket.on('join', (room) => {
         console.log('Received request to create or join room ' + room);
-
-        room = incomingRoom;
 
         let clientsInRoom = io.sockets.adapter.rooms[room];
         let numClients = clientsInRoom ? Object.keys(clientsInRoom.sockets).length : 0;
@@ -62,6 +57,12 @@ io.on('connection', (socket) => {
 
     socket.on('candidate', (candidate, recipientId) => {
         io.to(recipientId).emit('candidate', candidate, socket.id);
+    });
+
+    socket.on('leave', (room, socketId) => {
+        io.to(room).emit('leave', room, socketId);
+        socket.leave(room);
+        console.log(`Client ID ${socket.id} left room ${room}`);
     });
 
     socket.on('ipaddr', () => {
