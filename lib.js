@@ -36,15 +36,43 @@ const mediaStreamConstraints = {
 // Receiver only will work fine either way
 //mediaStreamConstraints.audio = false;
 
-// Set up to exchange only video.
+// To get devices like microphone, uncomment this line
+// and comment out the chromeMediaSource: 'desktop' line from the audio constraints
+//mediaStreamConstraints.video = false;
+
+// Set up to exchange audio/video
 const offerOptions = {
     offerToReceiveAudio: 1,
     offerToReceiveVideo: (showVideo) ? 1 : 0
 };
 
+// Setup Web Audio components
+window.AudioContext = (window.AudioContext || window.webkitAudioContext);
+let context = new AudioContext();
+let localStreamNode;
+let incomingRemoteStreamNode;
+let outgoingRemoteStreamNode = context.createMediaStreamDestination();
+let incomingRemoteGainNode = context.createGain();
+let outgoingRemoteGainNode = context.createGain();
+
+// Listen to what's going out in the left for reference
+let panL = context.createStereoPanner();
+panL.pan.value = -1;
+panL.connect(context.destination);
+outgoingRemoteGainNode.connect(panL);
+
+// Listen to what's coming in in the right ear
+let panR = context.createStereoPanner();
+panR.pan.value = 1;
+panR.connect(context.destination);
+
+incomingRemoteGainNode.connect(panR);
+outgoingRemoteGainNode.connect(outgoingRemoteStreamNode);
+
+
+
 // Define media elements.
 const localMedia = document.getElementById('localMedia');
-const localAudio = document.getElementById('localAudio');
 const localVideo = document.getElementById('localVideo');
 
 // Container for remote media elements
@@ -67,7 +95,6 @@ if (isElectron === false) {
     document.getElementById('fromDesktop').remove();
 }
 
-let localStream = null;
 const servers = null;  // Allows for RTC server configuration.
 
 
@@ -86,7 +113,7 @@ async function setupLocalMediaStreams() {
             resolve();
         })
         .catch((e) => {
-            trace(`Failed to obtain local media stream: ${e}`);
+            console.warn(`Failed to obtain local media stream: ${e}`);
 
             // We weren't able to get a local media stream
             // Become a receiver
@@ -103,17 +130,14 @@ async function setupLocalMediaStreamsFromFile(filepath) {
             return;
         }
 
+        // Create media source
+        // This is attached to the HTML audio element and can be fed arbitrary buffers of audio
+        // TODO: Make sure we can support MIME other than audio/mpeg
         let mediaSource = new MediaSource();
-        mediaSource.addEventListener('sourceopen', sourceOpen);
-
         trace('Created MediaSource.');
         console.dir(mediaSource);
 
-        // srcObject doesn't work here ?
-        localAudio.src = URL.createObjectURL(mediaSource);
-
-        let buffer;
-        async function sourceOpen() {
+        mediaSource.addEventListener('sourceopen', async () => {
             trace('MediaSource open.');
 
             // Corner case for file:// protocol since fetch won't like it
@@ -122,7 +146,7 @@ async function setupLocalMediaStreamsFromFile(filepath) {
                 // URL.revokeObjectURL(localAudio.src);
                 // localAudio.src = './test_file.mp3'
             } else {
-                buffer = mediaSource.addSourceBuffer('audio/mpeg');
+                let buffer = mediaSource.addSourceBuffer('audio/mpeg');
 
                 trace('Fetching data...');
                 let data;
@@ -132,27 +156,40 @@ async function setupLocalMediaStreamsFromFile(filepath) {
                 buffer.appendBuffer(data);
                 trace('Data loaded.');
             }
+        });
 
+        // Mask global localAudio purposefully
+        let localAudio = new Audio();
+        localAudio.autoplay = true;
+        localAudio.muted = true;
+
+        // Only grab stream after it has loaded; won't have tracks if grabbed too early
+        localAudio.addEventListener('canplaythrough', () => {
             try {
-                localStream = localAudio.captureStream();
-            } catch(e) {
-                trace(`Failed to captureStream() on audio elem. Assuming unsupported. Switching to receiver only.`);
+                let localStream = localAudio.captureStream();
+                gotLocalMediaStream(localStream);
+            } catch (e) {
+                console.warn(`Failed to captureStream() on audio elem. Assuming unsupported. Switching to receiver only.`, e);
 
                 enableReceiverOnly();
             }
             resolve();
-        }
+        });
+
+        localMedia.appendChild(localAudio);
+
+        // srcObject doesn't work here ?
+        localAudio.src = URL.createObjectURL(mediaSource);
+        localAudio.load();
     });
 }
 
 // Sets the MediaStream as the video element src.
 function gotLocalMediaStream(mediaStream) {
-    localAudio.srcObject = mediaStream;
-    if (showVideo)
-        localVideo.srcObject = mediaStream;
+    localStreamNode = context.createMediaStreamSource(mediaStream);
+    localStreamNode.connect(outgoingRemoteGainNode);
 
-    localStream = mediaStream;
-    trace('Received local stream.');
+    trace('Connected localStreamNode.');
 }
 
 
@@ -212,6 +249,7 @@ class Peer {
         this.remoteStream = null;
         this.titleElem = null;
         this.audioElem = null;
+        this.audioNode = null;
         this.videoElem = null;
 
         this.conn = new RTCPeerConnection(servers);
@@ -281,7 +319,7 @@ class Peer {
     }
 
     uncacheICECandidates() {
-        if (!(this.conn && this.conn.remoteDescription.type)) {
+        if (!(this.conn && this.conn.remoteDescription && this.conn.remoteDescription.type)) {
             console.warn(`Connection was not in a state for uncaching.`);
             return;
         }
@@ -302,12 +340,21 @@ class Peer {
         this.titleElem.innerHTML = `${this.id}:`;
         remoteMedia.appendChild(this.titleElem);
 
-        this.audioElem = new Audio();
-        this.audioElem.autoplay = true;
-        this.audioElem.controls = true;
-        this.audioElem.srcObject = this.remoteStream;
+        // TODO: This needs more investigation
+        // The stream node doesn't play unless an audio element is attached to it
+        // Mute and remove after loading since we only need it to trigger the stream
+        let audioElem = new Audio();
+        audioElem.autoplay = true;
+        audioElem.controls = true;
+        audioElem.muted = true;
+        audioElem.srcObject = this.remoteStream;
+        audioElem.addEventListener('canplaythrough', () => {
+            audioElem.pause();
+            audioElem = null;
+        });
 
-        remoteMedia.appendChild(this.audioElem);
+        this.audioNode = context.createMediaStreamSource(this.remoteStream);
+        this.audioNode.connect(incomingRemoteGainNode);
 
         if (showVideo) {
             this.videoElem = document.createElement('video');
@@ -329,6 +376,10 @@ class Peer {
  */
 async function createPeer(id, socket) {
     trace(`Starting connection to ${id}...`);
+
+    // Mask global localStream on purpose
+    // Easily revertible to old style streams from WebAudio changes
+    let localStream = outgoingRemoteStreamNode.stream;
 
     let peer = null;
     let videoTracks = null;
