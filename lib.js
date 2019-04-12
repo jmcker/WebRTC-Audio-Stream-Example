@@ -70,6 +70,9 @@ incomingRemoteGainNode.connect(panR);
 outgoingRemoteGainNode.connect(outgoingRemoteStreamNode);
 
 
+// Visualizer canvas
+const visualizerCanvas = document.getElementById('visualizer');
+const vizCtx = visualizerCanvas.getContext('2d');
 
 // Define media elements.
 const localMedia = document.getElementById('localMedia');
@@ -80,6 +83,8 @@ const remoteMedia = document.getElementById('remoteMedia');
 
 // Socket ID element
 const socketIdElem = document.getElementById('socketId');
+
+// Stream from options
 const streamFromElem = document.getElementById('streamFrom');
 
 // Hide video elements
@@ -671,4 +676,62 @@ class Room {
         this.name = name;
         this.peers = {};
     }
+}
+
+
+
+/**************************************************
+ * Other WebAudio stuff                           *
+***************************************************/
+
+// Visualizer
+// Based on: https://stackoverflow.com/a/49371349/6798110
+// and https://github.com/webrtc/samples/blob/gh-pages/src/content/peerconnection/webaudio-output/js/main.js
+let analyzerNode = context.createAnalyser();
+analyzerNode.smoothingTimeConstant = 0.6;
+analyzerNode.fftSize = 2048;
+analyzerNode.minDecibels = -100;
+analyzerNode.maxDecibels = -10;
+
+let vizFreqDomainData = new Uint8Array(analyzerNode.frequencyBinCount);
+let vizAnimationFrameId = requestAnimationFrame(updateVizualizer);
+outgoingRemoteGainNode.connect(analyzerNode);
+
+console.log(analyzerNode.frequencyBinCount);
+
+function updateVizualizer() {
+    analyzerNode.getByteFrequencyData(vizFreqDomainData);
+
+    let width = visualizerCanvas.width;
+    let height = visualizerCanvas.height;
+    let percent;
+    let offset;
+    let barWidth = (width / (analyzerNode.frequencyBinCount / 9.3)); // Estimation for now
+    let barHeight;
+    let increment = width / (analyzerNode.frequencyBinCount);
+
+    // Clear old points
+    vizCtx.clearRect(0, 0, width, height);
+    vizCtx.fillStyle = 'black';
+    vizCtx.fillRect(0, 0, width, height);
+    vizCtx.strokeStyle = 'blue';
+
+    let x = 0;
+
+    let next = 1;
+    for (let i = 0; i < analyzerNode.frequencyBinCount; i += next) {
+        next += i / (analyzerNode.frequencyBinCount / 16);
+        next = next - (next % 1);
+
+        barHeight = vizFreqDomainData[i];
+
+        vizCtx.fillStyle = 'blue';
+        vizCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+        x += barWidth + 1;
+    }
+
+    setTimeout(() => {
+        vizAnimationFrameId = requestAnimationFrame(updateVizualizer);
+    }, 20);
 }

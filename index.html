@@ -19,9 +19,9 @@
             <div><b>Stream from: </b></div>
             <div class="inputOptions">
                 <select id="streamFromOptions">
+                    <option value="none">None</option>
                     <option value="file">File</option>
                     <option id="fromDesktop" value="desktop">Desktop Capture (Windows only)</option>
-                    <option value="none">None</option>
                 </select>
             </div>
         </div>
@@ -36,6 +36,7 @@
     <div id="localMedia">
         <video id="localVideo" class="localVideo" autoplay controls muted></video>
     </div>
+    <canvas id="visualizer" width="512" height="300"></canvas>
 
     <h2>Remote Connections:</h2>
     <div id="remoteMedia"></div>
