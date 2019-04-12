@@ -59,7 +59,7 @@ let outgoingRemoteGainNode = context.createGain();
 let panL = context.createStereoPanner();
 panL.pan.value = -1;
 panL.connect(context.destination);
-outgoingRemoteGainNode.connect(panL);
+// outgoingRemoteGainNode.connect(panL);
 
 // Listen to what's coming in in the right ear
 let panR = context.createStereoPanner();
@@ -96,7 +96,7 @@ if (isElectron === false) {
 }
 
 const servers = null;  // Allows for RTC server configuration.
-
+let videoStream = null;
 
 
 
@@ -109,6 +109,10 @@ async function setupLocalMediaStreams() {
     return new Promise((resolve, reject) => {
         navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
         .then((stream) => {
+            if (showVideo) {
+                gotLocalVideoMediaStream(stream);
+            }
+
             gotLocalMediaStream(stream);
             resolve();
         })
@@ -130,6 +134,12 @@ async function setupLocalMediaStreamsFromFile(filepath) {
             return;
         }
 
+        if (showVideo) {
+            // This will grab video and audio.
+            // We'll overwrite the audio once it's done
+            await setupLocalMediaStreams();
+        }
+
         // Create media source
         // This is attached to the HTML audio element and can be fed arbitrary buffers of audio
         // TODO: Make sure we can support MIME other than audio/mpeg
@@ -137,6 +147,7 @@ async function setupLocalMediaStreamsFromFile(filepath) {
         trace('Created MediaSource.');
         console.dir(mediaSource);
 
+        // Can't call addSourceBuffer until it's open
         mediaSource.addEventListener('sourceopen', async () => {
             trace('MediaSource open.');
 
@@ -158,7 +169,9 @@ async function setupLocalMediaStreamsFromFile(filepath) {
             }
         });
 
-        // Mask global localAudio purposefully
+        // We need a media stream for WebRTC, so run
+        // our MediaSource through a muted HTML audio element
+        // and grab its stream via captureStream()
         let localAudio = new Audio();
         localAudio.autoplay = true;
         localAudio.muted = true;
@@ -184,12 +197,29 @@ async function setupLocalMediaStreamsFromFile(filepath) {
     });
 }
 
-// Sets the MediaStream as the video element src.
 function gotLocalMediaStream(mediaStream) {
+    let videoTracks = mediaStream.getVideoTracks();
+    if (videoTracks.length > 0) {
+        localVideo.srcObject = mediaStream;
+    }
+
+    // Disconnect our old one if we get a new one
+    // This will get called twice if we want a video stream
+    // and a different audio source
+    if (localStreamNode) {
+        localStreamNode.disconnect();
+    }
+
     localStreamNode = context.createMediaStreamSource(mediaStream);
     localStreamNode.connect(outgoingRemoteGainNode);
 
     trace('Connected localStreamNode.');
+}
+
+function gotLocalVideoMediaStream(mediaStream) {
+    videoStream = mediaStream;
+
+    trace('Received local video stream.');
 }
 
 
@@ -336,28 +366,38 @@ class Peer {
     gotRemoteMediaStream(event) {
         this.remoteStream = event.streams[0];
 
-        this.titleElem = document.createElement('h3');
-        this.titleElem.innerHTML = `${this.id}:`;
-        remoteMedia.appendChild(this.titleElem);
+        let videoTracks = this.remoteStream.getVideoTracks();
+        let audioTracks = this.remoteStream.getAudioTracks();
 
-        // TODO: This needs more investigation
-        // The stream node doesn't play unless an audio element is attached to it
-        // Mute and remove after loading since we only need it to trigger the stream
-        let audioElem = new Audio();
-        audioElem.autoplay = true;
-        audioElem.controls = true;
-        audioElem.muted = true;
-        audioElem.srcObject = this.remoteStream;
-        audioElem.addEventListener('canplaythrough', () => {
-            audioElem.pause();
-            audioElem = null;
-        });
+        if (!this.titleElem) {
+            this.titleElem = document.createElement('h3');
+            this.titleElem.innerHTML = `${this.id}:`;
+            remoteMedia.appendChild(this.titleElem);
+        }
 
-        this.audioNode = context.createMediaStreamSource(this.remoteStream);
-        this.audioNode.connect(incomingRemoteGainNode);
+        if (audioTracks.length > 0) {
+            // TODO: This needs more investigation
+            // The MediaStream node doesn't produce audio until an HTML audio element is attached to the stream
+            // Pause and remove the element after loading since we only need it to trigger the stream
+            // See https://stackoverflow.com/questions/24287054/chrome-wont-play-webaudio-getusermedia-via-webrtc-peer-js
+            // and https://bugs.chromium.org/p/chromium/issues/detail?id=121673#c121
+            let audioElem = new Audio();
+            audioElem.autoplay = true;
+            audioElem.controls = true;
+            audioElem.muted = true;
+            audioElem.srcObject = this.remoteStream;
+            audioElem.addEventListener('canplaythrough', () => {
+                audioElem.pause();
+                audioElem = null;
+            });
 
-        if (showVideo) {
+            this.audioNode = context.createMediaStreamSource(this.remoteStream);
+            this.audioNode.connect(incomingRemoteGainNode);
+        }
+
+        if (showVideo && videoTracks.length > 0) {
             this.videoElem = document.createElement('video');
+            this.videoElem.classList.add('remoteVideo');
             this.videoElem.autoplay = true;
             this.videoElem.controls = true;
             this.videoElem.muted = true;
@@ -385,10 +425,12 @@ async function createPeer(id, socket) {
     let videoTracks = null;
     let audioTracks = null;
     if (receiverOnly === false) {
-        videoTracks = localStream.getVideoTracks();
+        if (showVideo && videoStream) {
+            videoTracks = videoStream.getVideoTracks();
+        }
         audioTracks = localStream.getAudioTracks();
 
-        trace(`Audio devices:`);
+        trace(`Audio tracks:`);
         console.dir(audioTracks);
 
         if (showVideo && videoTracks.length > 0) {
@@ -404,7 +446,7 @@ async function createPeer(id, socket) {
 
     // Add local stream to connection and create offer to connect.
     if (receiverOnly === false && showVideo && videoTracks[0]) {
-        peer.conn.addTrack(videoTracks[0], localStream);
+        peer.conn.addTrack(videoTracks[0], videoStream);
     }
     if (receiverOnly === false && audioTracks[0]) {
         peer.conn.addTrack(audioTracks[0], localStream);
