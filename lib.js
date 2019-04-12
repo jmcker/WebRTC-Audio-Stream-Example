@@ -8,10 +8,20 @@ let showVideo = false;
 let isElectron = (navigator.userAgent.toLowerCase().indexOf(' electron/') > -1);
 
 // Set up media stream constant and parameters.
+// Audio is mono right now
 const mediaStreamConstraints = {
     audio: {
         mandatory: {
-            chromeMediaSource: 'desktop'
+            chromeMediaSource: 'desktop',
+            echoCancellation: false,
+            googEchoCancellation: false,
+            googAutoGainControl: false,
+            googNoiseSuppression: false,
+            googHighpassFilter: false,
+            googTypingNoiseDetection: false,
+            googAudioMirroring: false,
+            googAudioMirroring: false,
+            googNoiseReduction: false,
         }
     },
     video: {

@@ -21,6 +21,7 @@
                 <select id="streamFromOptions">
                     <option value="file">File</option>
                     <option id="fromDesktop" value="desktop">Desktop Capture (Windows only)</option>
+                    <option value="none">None</option>
                 </select>
             </div>
         </div>
@@ -58,8 +59,9 @@
                 case 'desktop':
                     await setupLocalMediaStreams();
                     break;
+                case 'none':
                 default:
-                    await setupLocalMediaStreamsFromFile('./test_file.mp3');
+                    receiverOnly = true;
                     break;
             }
 
