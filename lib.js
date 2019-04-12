@@ -55,19 +55,23 @@ let outgoingRemoteStreamNode = context.createMediaStreamDestination();
 let incomingRemoteGainNode = context.createGain();
 let outgoingRemoteGainNode = context.createGain();
 
-// Listen to what's going out in the left for reference
-let panL = context.createStereoPanner();
-panL.pan.value = -1;
-panL.connect(context.destination);
-// outgoingRemoteGainNode.connect(panL);
-
-// Listen to what's coming in in the right ear
-let panR = context.createStereoPanner();
-panR.pan.value = 1;
-panR.connect(context.destination);
-
-incomingRemoteGainNode.connect(panR);
+incomingRemoteGainNode.connect(context.destination);
 outgoingRemoteGainNode.connect(outgoingRemoteStreamNode);
+
+if (false) {
+    // Listen to what's going out in the left for reference
+    let panL = context.createStereoPanner();
+    panL.pan.value = -1;
+    panL.connect(context.destination);
+    outgoingRemoteGainNode.connect(panL);
+
+    // Listen to what's coming in in the right ear
+    let panR = context.createStereoPanner();
+    panR.pan.value = 1;
+    panR.connect(context.destination);
+    incomingRemoteGainNode.disconnect();
+    incomingRemoteGainNode.connect(panR);
+}
 
 
 // Visualizer canvas
@@ -696,6 +700,7 @@ analyzerNode.maxDecibels = -10;
 let vizFreqDomainData = new Uint8Array(analyzerNode.frequencyBinCount);
 let vizAnimationFrameId = requestAnimationFrame(updateVizualizer);
 outgoingRemoteGainNode.connect(analyzerNode);
+incomingRemoteGainNode.connect(analyzerNode);
 
 console.log(analyzerNode.frequencyBinCount);
 
