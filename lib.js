@@ -279,8 +279,10 @@ class Peer {
         this.remoteStream = null;
         this.titleElem = null;
         this.audioElem = null;
-        this.audioNode = null;
         this.videoElem = null;
+        this.audioNode = null;
+        this.gainNode = null;
+        this.muteButton = null;
 
         this.conn = new RTCPeerConnection(servers);
         trace('Created local peer connection object localPeerConnection.');
@@ -297,7 +299,7 @@ class Peer {
         });
     }
 
-    reconnect() {
+    cleanup() {
         if (this.titleElem) {
             this.titleElem.remove();
         }
@@ -306,25 +308,33 @@ class Peer {
             this.audioElem.remove();
         }
 
+        if (this.audioNode) {
+            this.audioNode.disconnect();
+        }
+
+        if (this.gainNode) {
+            this.gainNode.disconnect();
+        }
+
         if (this.videoElem) {
             this.videoElem.remove();
         }
+
+        if (this.muteButton) {
+            this.muteButton.remove();
+        }
+
+        this.iceCandidates = [];
+    }
+
+    reconnect() {
+        this.cleanup();
     }
 
     disconnect() {
         this.conn.close();
 
-        if (this.titleElem) {
-            this.titleElem.remove();
-        }
-
-        if (this.audioElem) {
-            this.audioElem.remove();
-        }
-
-        if (this.videoElem) {
-            this.videoElem.remove();
-        }
+        this.cleanup();
 
         // TODO: This is meh coupling
         this.socket.disconnected(this.id);
@@ -369,12 +379,16 @@ class Peer {
         let videoTracks = this.remoteStream.getVideoTracks();
         let audioTracks = this.remoteStream.getAudioTracks();
 
+        // If we have a video stream and separate audio stream,
+        // we'll get multiple 'track' events
+        // Make sure the title only gets added once
         if (!this.titleElem) {
             this.titleElem = document.createElement('h3');
             this.titleElem.innerHTML = `${this.id}:`;
             remoteMedia.appendChild(this.titleElem);
         }
 
+        // Make sure we actually have audio tracks
         if (audioTracks.length > 0) {
             // TODO: This needs more investigation
             // The MediaStream node doesn't produce audio until an HTML audio element is attached to the stream
@@ -391,10 +405,35 @@ class Peer {
                 audioElem = null;
             });
 
+            // Gain node for this stream only
+            // Connected to gain node for all remote streams
+            this.gainNode = context.createGain();
+            this.gainNode.connect(incomingRemoteGainNode);
+
             this.audioNode = context.createMediaStreamSource(this.remoteStream);
-            this.audioNode.connect(incomingRemoteGainNode);
+            this.audioNode.connect(this.gainNode);
+
+            // Setup mute button logic
+            this.muteButton = document.createElement('button');
+            this.muteButton.innerHTML = 'Mute';
+            this.muteButton.addEventListener('click', () => {
+                if (this.muteButton.innerHTML === 'Mute') {
+                    this.gainNode.gain.value = 0;
+                    this.muteButton.innerHTML = 'Unmute';
+                } else {
+                    this.gainNode.gain.value = 1;
+                    this.muteButton.innerHTML = 'Mute';
+                }
+            });
+
+            remoteMedia.appendChild(this.muteButton);
+
+            // AudioContext gets suspended if created before
+            // a user interaction https://goo.gl/7K7WLu
+            context.resume();
         }
 
+        // Do video if we should
         if (showVideo && videoTracks.length > 0) {
             this.videoElem = document.createElement('video');
             this.videoElem.classList.add('remoteVideo');
@@ -626,6 +665,7 @@ class Socket {
     }
 }
 
+// Not in use yet
 class Room {
     constructor(name) {
         this.name = name;
