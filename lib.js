@@ -77,6 +77,17 @@ if (false) {
 // Visualizer canvas
 const visualizerCanvas = document.getElementById('visualizer');
 const vizCtx = visualizerCanvas.getContext('2d');
+visualizerCanvas.addEventListener('dblclick', () => {
+    if (visualizerCanvas.requestFullscreen) {
+        visualizerCanvas.requestFullscreen();
+    } else if (visualizerCanvas.webkitRequestFullscreen) {
+        visualizerCanvas.webkitRequestFullscreen();
+    } else if (visualizerCanvas.mozRequestFullScreen) {
+        visualizerCanvas.mozRequestFullScreen();
+    } else if (visualizerCanvas.msRequestFullscreen) {
+        visualizerCanvas.msRequestFullscreen();
+    }
+});
 
 // Define media elements.
 const localMedia = document.getElementById('localMedia');
