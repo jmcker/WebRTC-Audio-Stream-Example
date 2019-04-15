@@ -36,10 +36,6 @@ const mediaStreamConstraints = {
 // Receiver only will work fine either way
 //mediaStreamConstraints.audio = false;
 
-// To get devices like microphone, uncomment this line
-// and comment out the chromeMediaSource: 'desktop' line from the audio constraints
-//mediaStreamConstraints.video = false;
-
 // Set up to exchange audio/video
 const offerOptions = {
     offerToReceiveAudio: 1,
@@ -149,6 +145,10 @@ async function setupLocalMediaStreams() {
 
 async function setupLocalMediaStreamsFromFile(filepath) {
     return new Promise(async (resolve, reject) => {
+        // AudioContext gets suspended if created before
+        // a user interaction https://goo.gl/7K7WLu
+        context.resume();
+
         if (receiverOnly) {
             resolve();
             return;
@@ -175,7 +175,7 @@ async function setupLocalMediaStreamsFromFile(filepath) {
             if (isElectron === false && location.href.includes('file://')) {
                 // TODO: Audio still wouldn't transmit
                 // URL.revokeObjectURL(localAudio.src);
-                // localAudio.src = './test_file.mp3'
+                // localAudio.src = './test_file.mp3';
             } else {
                 let buffer = mediaSource.addSourceBuffer('audio/mpeg');
 
@@ -715,37 +715,55 @@ incomingRemoteGainNode.connect(analyzerNode);
 
 console.log(analyzerNode.frequencyBinCount);
 
+let vizualizerOpt = document.getElementById('vizualizerOptions');
+
 function updateVizualizer() {
     analyzerNode.getByteFrequencyData(vizFreqDomainData);
 
     let width = visualizerCanvas.width;
     let height = visualizerCanvas.height;
-    let percent;
-    let offset;
     let barWidth = (width / (analyzerNode.frequencyBinCount / 9.3)); // Estimation for now
-    let barHeight;
-    let increment = width / (analyzerNode.frequencyBinCount);
 
     // Clear old points
     vizCtx.clearRect(0, 0, width, height);
     vizCtx.fillStyle = 'black';
     vizCtx.fillRect(0, 0, width, height);
-    vizCtx.strokeStyle = 'blue';
+    vizCtx.strokeStyle = 'yellow';
+    vizCtx.fillStyle = 'yellow';
+
+    vizCtx.beginPath();
+    vizCtx.moveTo(0, height);
 
     let x = 0;
+    let t = 1;
 
     let next = 1;
     for (let i = 0; i < analyzerNode.frequencyBinCount; i += next) {
+        // Rounding doesn't go so well...
         next += i / (analyzerNode.frequencyBinCount / 16);
         next = next - (next % 1);
 
-        barHeight = vizFreqDomainData[i];
+        if (vizualizerOpt.value === 'bar') {
+            vizCtx.fillRect(x, height - vizFreqDomainData[i], barWidth, vizFreqDomainData[i]);
+        } else {
+            let p0 = (i > 0) ? { x: x - barWidth, y: height - vizFreqDomainData[i - 1] } : { x: 0, y: 0 };
+            let p1 = { x: x, y: height - vizFreqDomainData[i] };
+            let p2 = (i < analyzerNode.frequencyBinCount - 1) ? { x: x + barWidth, y: height - vizFreqDomainData[i + 1] } : p1;
+            let p3 = (i < analyzerNode.frequencyBinCount - 2) ? { x: x + 2 * barWidth, y: height - vizFreqDomainData[i + 2] } : p1;
 
-        vizCtx.fillStyle = 'blue';
-        vizCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+            let cp1x = p1.x + (p2.x - p0.x) / 6 * t;
+            let cp1y = p1.y + (p2.y - p0.y) / 6 * t;
+
+            let cp2x = p2.x - (p3.x - p1.x) / 6 * t;
+            let cp2y = p2.y - (p3.y - p1.y) / 6 * t;
+
+            vizCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
 
         x += barWidth + 1;
     }
+
+    vizCtx.stroke();
 
     setTimeout(() => {
         vizAnimationFrameId = requestAnimationFrame(updateVizualizer);

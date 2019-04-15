@@ -21,6 +21,7 @@
                 <select id="streamFromOptions">
                     <option value="none">None</option>
                     <option value="file">File</option>
+                    <option value="mic">Microphone</option>
                     <option id="fromDesktop" value="desktop">Desktop Capture (Windows only)</option>
                 </select>
             </div>
@@ -36,6 +37,10 @@
     <div id="localMedia">
         <video id="localVideo" class="localVideo" autoplay controls muted></video>
     </div>
+    <select id="vizualizerOptions">
+        <option value="line">Line</option>
+        <option value="bar">Bar</option>
+    </select><br><br>
     <canvas id="visualizer" width="512" height="300"></canvas>
 
     <h2>Remote Connections:</h2>
@@ -55,6 +60,17 @@
             switch (source) {
                 case 'file':
                     await setupLocalMediaStreamsFromFile('./test_file.mp3');
+                    break;
+                case 'mic':
+                    // Disable the constraints that exclude microphone
+                    delete mediaStreamConstraints.audio.mandatory.chromeMediaSource;
+                    if (showVideo) {
+                        // Can't do screen capture without screen audio
+                        mediaStreamConstraints.video = true;
+                    } else {
+                        mediaStreamConstraints.video = false;
+                    }
+                    await setupLocalMediaStreams();
                     break;
                 case 'desktop':
                     await setupLocalMediaStreams();
