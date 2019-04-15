@@ -295,6 +295,8 @@ class Peer {
         this.offered = false;
         this.answered = false;
         this.conn = null;
+        this.sendChannel = null;
+        this.recvChannel = null;
         this.iceCandidates = [];
         this.remoteStream = null;
         this.titleElem = null;
@@ -304,7 +306,7 @@ class Peer {
         this.gainNode = null;
         this.muteButton = null;
 
-        this.conn = new RTCPeerConnection(servers);
+        this.conn = new RTCPeerConnection(servers, {  });
         trace('Created local peer connection object localPeerConnection.');
 
         // Use arrow function so that 'this' is available in class methods
@@ -316,6 +318,26 @@ class Peer {
         });
         this.conn.addEventListener('track', (event) => {
             this.gotRemoteMediaStream(event);
+        });
+
+        // Set up additional data channel to pass messages peer-to-peer
+        // There is a separate channel for sending and receiving
+        this.sendChannel = this.conn.createDataChannel('session-info');
+        this.sendChannel.addEventListener('open', (event) => {
+            trace(`Data channel to ${this.id} opened.`);
+        });
+
+        this.conn.addEventListener('datachannel', (event) => {
+            trace(`Received data channel '${event.channel.label}' from ${this.id}.`);
+            this.recvChannel = event.channel;
+
+            this.recvChannel.addEventListener('message', (event) => {
+                trace(`Message received from ${this.id}:`);
+                console.dir(JSON.parse(event.data));
+            });
+
+            // Send an initial message
+            this.sendChannel.send(JSON.stringify({ type: 'msg', contents: 'hello' }));
         });
     }
 
@@ -353,6 +375,8 @@ class Peer {
 
     disconnect() {
         this.conn.close();
+        this.sendChannel.close();
+        this.recvChannel.close();
 
         this.cleanup();
 
