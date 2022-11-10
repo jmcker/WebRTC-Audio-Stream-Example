@@ -14,7 +14,7 @@
     "webrtc-adapter": "^7.2.3"
   },
   "devDependencies": {
-    "electron": "^4.1.4"
+    "electron": "^18.3.7"
   },
   "nodemonConfig": {
     "watch": "server.js"
